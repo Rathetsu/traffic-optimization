@@ -1,6 +1,7 @@
-import sys, os
+import sys
+import os
 
-from src.dqn import DQNetwork
+from src.dqn import DQNetwork, FCQNetwork
 from src.env import SumoEnv
 from src.memory import DQNBuffer
 from src.data_storage import StoreState
@@ -16,10 +17,13 @@ def weights_init(m):
         torch.nn.init.xavier_uniform(m.weight.data)
         nn.init.constant(m.bias.data, 0)
 
+
 def soft_update(local_model, target_model, tau):
-        for target_param, local_param in zip(target_model.parameters(),
-                                             local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1-tau)*target_param.data)
+    for target_param, local_param in zip(target_model.parameters(),
+                                         local_model.parameters()):
+        target_param.data.copy_(tau*local_param.data +
+                                (1-tau)*target_param.data)
+
 
 def train_net(q, q_target, memory, optimizer, batch_size, gamma):
     state, a, r, state_prime, done_mask = memory.sample(batch_size)
@@ -35,8 +39,9 @@ def train_net(q, q_target, memory, optimizer, batch_size, gamma):
     optimizer.zero_grad()
     loss.backward()
     for param in q.parameters():
-       param.grad.data.clamp_(-1, 1)
+        param.grad.data.clamp_(-1, 1)
     optimizer.step()
+
 
 def training(config):
     learning_rate = config['learning_rate']
@@ -53,7 +58,7 @@ def training(config):
     sumoCmd = config['sumoCmd']
     sys.path.append(os.path.join(config['sumoTools']))
 
-    q = DQNetwork()
+    q = FCQNetwork()
 
     try:
         q.load_state_dict(torch.load(weights_path))
@@ -61,7 +66,7 @@ def training(config):
         q.apply(weights_init)
         print('No model weights found, initializing xavier_uniform')
 
-    q_target = DQNetwork()
+    q_target = FCQNetwork()
     q_target.load_state_dict(q.state_dict())
 
     memory = DQNBuffer(buffer_limit, 0.)
@@ -71,7 +76,7 @@ def training(config):
 
     state = StoreState()
     min_wait = float('inf')
-    total_steps=0
+    total_steps = 0
     pbar = tqdm(total=epochs)
 
     for epoch in np.arange(epochs):
@@ -80,7 +85,8 @@ def training(config):
 
         if epoch != 0:
             env.reset()
-            pbar.set_description(f'EPOCH: {epoch}, mean reward: {info[6]}, mean waiting time: {info[2]}')
+            pbar.set_description(
+                f'EPOCH: {epoch}, mean reward: {info[6]}, mean waiting time: {info[2]}')
 
         state, _, _, _ = env.step(0)
         done = False
@@ -90,30 +96,30 @@ def training(config):
         while not done:
             with torch.no_grad():
                 a = q.predict(state.as_tuple, eps)
-            state, r, done, info = env.step(a) # storing prime state
+            state, r, done, info = env.step(a)  # storing prime state
 
             if done:
                 done_mask = 0.0
 
             if r != 0 or step > 60:
                 memory.add((state.position, state.speed,
-                    state.tl, state.p_position,
-                    state.p_speed, state.p_tl,
-                    a, r, done_mask))
+                            state.tl, state.p_position,
+                            state.p_speed, state.p_tl,
+                            a, r, done_mask))
 
             state.swap()  # state = state_prime
 
             if memory.size > batch_size:
                 train_net(q, q_target, memory, optimizer, batch_size, gamma)
-           
+
             step += 1
             total_steps += 1
-        
+
         #  clear memory each mem_refill epoch
-        if epoch%mem_refill == 0 and epoch != 0:
+        if epoch % mem_refill == 0 and epoch != 0:
             memory.refill()
         pbar.update(1)
-        
+
         # soft update weights at the end of epoch
         soft_update(q, q_target, 0.01)
 

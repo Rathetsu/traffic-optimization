@@ -25,9 +25,10 @@ class SumoEnv(gym.Env):
         self.low = np.zeros(9,)
         self.high = np.array([3] + 8*[2000])
         self.observation_space = spaces.Box(low=self.low, high=self.high, shape=(9,), dtype=np.int32)  
-        self.conn = None
+        self.conn = start()
         self.max_step = 2000
         self.current_step = 0
+        self.current_state = [0, 0, 9, 7, 7, 0, 11, 13, 13]
  
     def step(self, action):
         cur_waiting_time, elapsed, emissions = take_action(self.conn, self.current_state, action)
