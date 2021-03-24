@@ -1,7 +1,7 @@
 import sys, os
 
 from src.dqn import DQNetwork
-from src.env import SumoIntersection
+from src.env import SumoEnv
 from src.memory import DQNBuffer
 from src.data_storage import StoreState
 
@@ -66,7 +66,7 @@ def training(config):
 
     memory = DQNBuffer(buffer_limit, 0.)
 
-    env = SumoIntersection(sumoBinary, sumoCmd, sim_len, n_cars)
+    env = SumoEnv()
     optimizer = torch.optim.RMSprop(q.parameters(), lr=learning_rate)
 
     state = StoreState()
@@ -123,4 +123,4 @@ def training(config):
         if epoch == 1599:
             torch.save(q.state_dict(), f'../model/dqn_{epoch}_final.pt')
 
-    print('finished training')
+    print('##############   Finished Training   ##############')
