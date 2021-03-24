@@ -74,36 +74,17 @@ class FCQNetwork(nn.Module):
         super().__init__()
 
         self.features1 = nn.Sequential(
-                nn.Linear(256, 256),
+                nn.Linear(9, 256),
                 nn.ReLU(),
                 nn.Dropout(0.2),
                 nn.Linear(256, 128),
                 nn.ReLU()
                 )
-        self.features2 = nn.Sequential(
-                nn.Linear(256, 256),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(256, 128),
-                nn.ReLU()
-                )
-        self.linear_q = nn.Linear(128 + 128 + 4, 4)
+        self.linear_q = nn.Linear(128 , 4)
 
     def forward(self, state):
-        x1, x2, x3 = state
-
-        x1 = self.features1(x1.view(x1.size(0), 1, 1, -1))
-        x2 = self.features2(x2.view(x1.size(0), 1, 1, -1))
-        # x3 = self.features3(x3)
-
-        x1 = x1.view(x1.size(0), -1)
-        x2 = x2.view(x2.size(0), -1)
-        x3 = x3.view(x3.size(0), -1)
-
-        x = torch.cat((x1, x2, x3), dim=1)
-
-        x = self.linear_q(x)
-
+        x1 = self.features1(state)
+        x = self.linear_q(x1)
         return x
 
     def predict(self, state, eps):
