@@ -12,60 +12,51 @@ import numpy as np
 import gym
 from gym import spaces
 from sumolib import checkBinary
-from sumo_utils import get_state, take_action , get_total_waiting_time
-from gen_sim import gen_sim
+from src.sumo_utils import get_state, take_action , get_total_waiting_time
+from src.gen_sim import gen_sim
 
 
 class SumoEnv(gym.Env):
     """Custom Environment that follows gym interface"""
 
-    def __init__(self, steps_per_episode=100000):
+    def __init__(self):
         super(SumoEnv, self).__init__()
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Discrete(4)
         self.low = np.zeros(9,)
-        self.high = np.array([1] + 8*[1000])
-        self.observation_space = spaces.Box(low=self.low, high=self.high, shape=(9,), dtype=np.int16)  
-        self.steps_per_episode = steps_per_episode
+        self.high = np.array([3] + 8*[2000])
+        self.observation_space = spaces.Box(low=self.low, high=self.high, shape=(9,), dtype=np.int32)  
         self.conn = None
+        self.max_step = 2000
         self.current_step = 0
-        self.total_waiting_time = 0
-        self.total_emissions = 0
-        self.current_state = None
-        self.vehicles = None
-        self.current_reward = 0
  
     def step(self, action):
         cur_waiting_time, elapsed, emissions = take_action(self.conn, self.current_state, action)
-        vehicle_ids = get_vehicle_ids(self.conn)
-        self.total_emissions += emissions
-        self.total_waiting_time += cur_waiting_time
-        reward = emissions * -1
         self.current_step += elapsed
+        reward = (-1 * cur_waiting_time) / self.vehicles
         next_state = get_state(self.conn)
         self.current_state = next_state
         done = not (
             self.conn.simulation.getMinExpectedNumber() > 0
-            and self.current_step <= self.steps_per_episode
+            and self.current_step <= self.max_step
         )
         if done:
             self.print_stats()
             close(self.conn)
 
-        return np.array(next_state), reward, done, {}
+        self.previous_action = action
+
+        return np.array(next_state).reshape(9,), reward, done, {}
 
     def reset(self):
         self.reset_everyting()
-        WEST_EAST = np.random.rand()
-        EAST_WEST = np.random.rand()
-        NORTH_SOUTH = np.random.rand()
-        SOUTH_NORTH = np.random.rand()
+        WEST_EAST , EAST_WEST , NORTH_SOUTH , SOUTH_NORTH = get_probs()
         self.vehicles = gen_sim(
             "",
-            round=1,
-            p_west_east=0.3,
-            p_east_west=0.2,
-            p_north_south=0.2,
-            p_south_north=0.1,
+            round=2,
+            p_west_east=WEST_EAST,
+            p_east_west=EAST_WEST,
+            p_north_south=NORTH_SOUTH,
+            p_south_north=SOUTH_NORTH,
         )
         self.conn = start()
         self.conn.trafficlight.setPhase("0", 2)
@@ -76,18 +67,12 @@ class SumoEnv(gym.Env):
     def render(self, mode="human"):
         raise NotImplementedError
 
-
     def print_stats(self):
-        avg_waiting_time = self.total_waiting_time / self.vehicles
-        avg_emissions = self.total_emissions / (1000 *self.vehicles)
-        print(avg_waiting_time,avg_emissions)
+        print("######### Finished Episode #############")
+
 
     def reset_everyting(self):
         self.current_step = 0
-        self.total_waiting_time = 0
-        self.total_emissions = 0
-
-
 def start():
     sumoBinary = checkBinary("sumo")
     traci.start(
@@ -120,3 +105,10 @@ def get_vehicle_ids(conn):
         + conn.lane.getLastStepVehicleIDs("3i_0")
     )
     return vehicle_ids
+
+def get_probs():
+    WEST_EAST = np.random.rand()
+    EAST_WEST = np.random.rand()
+    NORTH_SOUTH = np.random.rand()
+    SOUTH_NORTH = np.random.rand()
+    return WEST_EAST , EAST_WEST , NORTH_SOUTH , SOUTH_NORTH

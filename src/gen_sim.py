@@ -7,8 +7,7 @@ DET_POS = 40
 
 
 def gen_sim(folder, p_west_east, p_east_west, p_north_south, p_south_north, N=NUMBER_OF_TIME_STEPS_WITH_CAR_GENERATION,
-            round=1):
-    
+            round=2):
     os.makedirs(f'data/{folder}', exist_ok=True)
     # Specify routes taken by vehicles
     with open(f'data/{folder}/cross.rou.xml', "w+") as routes:
@@ -64,8 +63,18 @@ def gen_sim(folder, p_west_east, p_east_west, p_north_south, p_south_north, N=NU
                 </tlLogic>
                 """
     if round == 2:
-        print("ROUND 2 yet to be released!!")
-        raise NotImplementedError
+        traff_states = """
+                     <tlLogic id="0" type="static" programID="0" offset="0">
+                        <phase duration="300" state="Grrr"/>
+                        <phase duration="6" state="yrrr"/>
+                        <phase duration="300" state="rGrr"/>
+                        <phase duration="6" state="ryrr"/>
+                        <phase duration="300" state="rrGr"/>
+                        <phase duration="6" state="rryr"/>
+                        <phase duration="300" state="rrrG"/>
+                        <phase duration="6" state="rrry"/>
+                    </tlLogic>
+                """
     if round not in [1, 2]:
         print(f"ROUND {round} does not exist")
         raise ValueError
